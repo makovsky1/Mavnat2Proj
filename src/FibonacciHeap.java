@@ -1,13 +1,28 @@
+import java.util.ArrayList;// delete before submission
+import java.util.List;
+
 /**
  * FibonacciHeap
  *
  * An implementation of a Fibonacci Heap over integers.
  */
 public class FibonacciHeap {
-    HeapNode min;
-
+    private HeapNode min;
+    private HeapNode first;
+    private HeapNode last;
+    private int size;
+    private static int totalCuts=0;
+    private static int totalLinks=0;
+    private int trees;
+    private int marked;
     public FibonacciHeap() {
         this.min = new HeapNode();
+        this.first=this.min;
+        this.last=this.min;
+        this.size=0;
+
+        this.trees=0;
+        this.marked=0;
     }
 
     public FibonacciHeap(HeapNode node) {
@@ -19,6 +34,11 @@ public class FibonacciHeap {
         node.setNext(null);
         node.setPrev(null);
         node.setParent(null);
+        this.first=node;
+        this.last=node;
+        this.size=1;
+        this.trees=1;
+        this.marked=0;
     }
 
     /**
@@ -40,35 +60,219 @@ public class FibonacciHeap {
      */
     public HeapNode insert(int key) {
         HeapNode node = new HeapNode(key); //Creating a node (of type HeapNode) which contains the given key
-        /*if (this.isEmpty()){
-            this.min = node;
+        this.size++;
+        this.trees++;
+        return insertNode(node);
+
+    }
+    private HeapNode insertNode(HeapNode node) // deal with insertion of nodes
+    {
+        if (this.isEmpty()){
+            this.min=node;
+            this.last=node;
+            this.first=node;
+            node.setNext(node);
+            node.setPrev(node);
+            return node;
         }
-        HeapNode curr = this.min;
-        while (curr.getPrev() != null){
-            curr = curr.getPrev();
+        if (node.getKey()<this.min.getKey())
+        {
+            this.min=node;
         }
-        curr.setPrev(node);
-        node.setNext(curr);
-        if (key > this.min.getKey()){
-            this.min = node;
-        }8=*/
+        this.first.setPrev(node);
+        node.setNext(this.first);
+        node.setPrev(this.last);
+        this.last.setNext(node);
+        this.first=node;
         return node;
     }
-
     /**
      * public void deleteMin()
      * <p>
      * Deletes the node containing the minimum key.
      */
     public void deleteMin() {
-        if (this.min.getChild().getRank() == -1) { // If min has no child
-            this.min.getPrev().setNext(min.getNext());
-            this.min.getNext().setPrev(min.getPrev());
-        }
+        this.size--;
+        this.trees=this.trees+this.min.getRank()-1;
+        if (this.min.getRank() == 0) { // If min has no child
+            if (this.min==this.first && this.min==this.last)// heapNode  is empty
+            {
+                this.min = new HeapNode();
+                this.first=this.min;
+                this.last=this.min;
+                this.size=0;
+                return;
+            }
+            else if (this.min==this.first)
+            {
+                this.first=min.getNext();
+                this.first.setPrev(this.last);
+                this.last.setNext(this.first);
+
+            }
+            else if (this.min==this.last)
+            {
+                this.last=min.getPrev();
+                this.last.setNext(this.first);
+                this.first.setPrev(this.last);
+
+            }
+            else {
+                this.min.getPrev().setNext(min.getNext());
+                this.min.getNext().setPrev(min.getPrev());
+            }
+            }
         else{ // We want to connect min sons to x.getPrev and x.getNext
+            HeapNode child=this.min.getChild();
+            HeapNode secondChild=child;
+            child.setParent(null);
+            do {// remove marks of child of min
+                if (secondChild.getMark()==true)
+                {
+                    secondChild.setMark(false);
+                    this.marked--;
+                }
+                secondChild = secondChild.getNext();
+
+            }
+            while(child!=secondChild);
+            if (this.min!=this.last && this.min!=this.first) {// normal case
+                child.getPrev().setNext(min.getNext());
+                min.getNext().setPrev(child.getPrev());
+                child.setPrev(min.getPrev());
+                child.getPrev().setNext(child);
+
+            }
+            else if (this.min==this.last && this.first==this.min)// only tree is min tree
+            {
+                this.last=child.getPrev();
+                this.first=child;
+            }
+            else if(this.min==this.first)// first tree is min
+            {
+                this.first=child;
+                this.last.setNext(child);
+                child.getPrev().setNext(min.getNext());
+                min.getNext().setPrev(child.getPrev());
+                this.first.setPrev(this.last);
+            }
+
+            else if (this.min==this.last)// last tree is min tree
+            {
+                this.last=child.getPrev();
+                this.last.setNext(this.first);
+                child.setPrev(this.min.getPrev());
+                child.getPrev().setNext(child);
+            }
         }
 
+        this.succesiveLinking();
+
     }
+    private void succesiveLinking()
+    {
+        int arrSize = (int)(Math.log(this.size) / Math.log(2));;
+        arrSize++;
+        HeapNode [] bucket= new HeapNode[arrSize];
+        for (int i = 0; i <bucket.length; i++) {
+            bucket[i]=null;
+
+        }
+        this.toBuckets(bucket);
+        this.fromBuckets(bucket);
+    }
+
+    private HeapNode link(HeapNode node1, HeapNode node2) {// needs to be the same rank
+        this.trees--;
+        totalLinks++;
+
+        if (node1.getRank()==0)
+        {
+            if (node1.getKey()< node2.getKey())
+            {
+                node2.setParent(node1);
+                node1.setChild(node2);
+                node2.setNext(node2);
+                node2.setPrev(node2);
+                node1.setRank(node1.getRank()+1);
+                return node1;
+
+            }
+
+            if (node1.getKey()> node2.getKey())
+            {
+                node1.setParent(node2);
+                node2.setChild(node1);
+                node1.setNext(node1);
+                node1.setPrev(node1);
+                node2.setRank(node2.getRank()+1);
+                return node2;
+
+            }
+        }
+         if (node1.getKey()< node2.getKey())
+        {
+            node2.setParent(node1);
+            node2.setNext(node1.getChild());
+            node2.setPrev(node1.getChild().getPrev());
+            node1.getChild().getPrev().setNext(node2);
+            node1.getChild().setPrev(node2);
+            node1.setChild(node2);
+            node1.setRank(node1.getRank()+1);
+            return node1;
+        }
+
+        if (node1.getKey()>node2.getKey())
+        {
+            node1.setParent(node2);
+            node1.setNext(node2.getChild());
+            node1.setPrev(node2.getChild().getPrev());
+            node2.getChild().getPrev().setNext(node1);
+            node2.getChild().setPrev(node1);
+            node2.setChild(node1);
+            node2.setRank(node2.getRank()+1);
+
+        }
+        return node2;
+    }
+    private void toBuckets(HeapNode [] bucket)
+    {
+        HeapNode starter=this.first;
+        starter.getPrev().setNext(null);
+        while (starter!=null)
+        {
+            HeapNode y=starter;
+            starter=starter.getNext();
+            while (bucket[y.getRank()]!=null)
+            {
+                y=link(y,bucket[y.getRank()]);
+                bucket[y.getRank()-1]=null;
+            }
+            bucket[y.getRank()]=y;
+        }
+    }
+    private void fromBuckets(HeapNode [] bucket)
+    {
+        this.min=new HeapNode();// initalize the heap
+        this.first=min;
+        this.last=min;
+        for (int i = bucket.length-1; i >=0; i--) {
+            if (bucket[i]!=null)
+            {
+                if (this.isEmpty())
+                {
+                    this.insertNode(bucket[i]);
+                }
+                else
+                {
+                    this.insertNode(bucket[i]);
+                }
+            }
+
+        }
+    }
+
+
 
     /**
      * public HeapNode findMin()
@@ -88,23 +292,19 @@ public class FibonacciHeap {
      * Melds heap2 with the current heap.
      */
     public void meld(FibonacciHeap heap2) {
-        /*HeapNode node1 = this.min;
-        while (node1.getNext() != null){
-            node1 = node1.getNext();
+        this.last.setNext(heap2.first);
+        this.first.setPrev(heap2.last);
+        heap2.first.setPrev(this.last);
+        heap2.last.setNext(this.first);
+        this.last=heap2.last;
+        this.size=this.size+heap2.size;
+        this.trees=this.trees+heap2.trees;
+        this.marked=this.marked+heap2.marked;
+        if (this.min.getKey() > heap2.min.getKey()) {
+            this.min=heap2.min;
         }
-        HeapNode node2 = heap2.min;
-        while(node2.getPrev() != null){
-            node2 = node2.getPrev();
-        }
-        node1.setNext(node2);
-        node2.setPrev(node1);
-        if (this.min.getKey() > heap2.min.getKey()){
-            heap2.min = null;
-        }
-        else{
-            this.min = heap2.min;
-        }*/
     }
+
 
     /**
      * public int size()
@@ -112,7 +312,7 @@ public class FibonacciHeap {
      * Returns the number of elements in the heap.
      */
     public int size() {
-        return -123; // should be replaced by student code
+        return this.size; // should be replaced by student code
     }
 
     /**
@@ -132,8 +332,14 @@ public class FibonacciHeap {
      * Deletes the node x from the heap.
      * It is assumed that x indeed belongs to the heap.
      */
-    public void delete(HeapNode x) {
-        return; // should be replaced by student code
+    public void delete(HeapNode x) {// using deletemin and decreaseKey
+        this.size--;
+        int key = x.getKey();
+        int minKey = this.min.getKey();
+        if (key != minKey) {
+            this.decreaseKey(x, (key - minKey) + 1);
+        }
+        this.deleteMin();
     }
 
     /**
@@ -143,38 +349,66 @@ public class FibonacciHeap {
      * to reflect this change (for example, the cascading cuts procedure should be applied if needed).
      */
     public void decreaseKey(HeapNode x, int delta) {
-        if (x.getParent() == null || x.getParent().getKey() < delta) {
-            x.setKey(delta);
-        } else {
+
+        if (x.getParent() == null || x.getParent().getKey() < delta) {// if root does not matter
+            x.setKey(x.getKey() - delta);
+
+        }
+
+        else {
             cascadingCuts(x);
         }
+        if (x.getKey() < this.min.getKey()) {
+            this.min = x;
+        }
+
     }
+
 
     public void cascadingCuts(HeapNode x) {
-        boolean sgn = x.getParent().getMark();
-        if (x.getParent().getChild() == x) { // If x is a child
-            x.getParent().setChild(x.getNext());
-        }
-        x.getParent().setRank(x.getParent().getRank() - 1);
-        if (x.getParent().getParent() != null){ //We keep the roots mark to be false
-            x.getParent().setMark(true);
-        }
-        x.getNext().setPrev(x.getPrev());
-        x.getPrev().setNext(x.getNext());
-        x.setNext(null);
-        x.setPrev(null);
-        x.setParent(null);
-        HeapNode node = this.min;
-        /*while (node.getPrev() != null) {
-            node = node.getPrev();
+        HeapNode parent=x.getParent();
+        do {
+            boolean sgn =parent.getMark();
+            if (x.getMark())
+            {
+                this.marked--;
+                x.setMark(false);
+            }
+            x.setParent(null);
+            parent.setRank(parent.getRank() - 1);
+            if (x.getNext() == x) {
+                parent.setChild(null);
 
-        node.setPrev(x);
-        x.setNext(node);
-        if (sgn){
-            cascadingCuts(x.getParent());
-        }*/
+            } else {
+                parent.setChild(x.getNext());
+                x.getPrev().setNext(x.getNext());
+                x.getNext().setPrev(x.getPrev());
+            }
+            x.setNext(this.first);
+            this.first.setPrev(x);
+            x.setPrev(this.last);
+            this.last.setNext(x);
+            this.trees++;
+            totalCuts++;
+            if (sgn==false)
+            {
+                if (parent.getParent()==null)
+                {
+                    break;
+                }
+                else
+                {
+                    parent.setMark(true);
+                    this.marked++;
+                    break;
+                }
+            }
+            parent=parent.getParent();
+
+        }
+        while (parent != null);
+
     }
-
 
     /**
      * public int potential()
@@ -187,7 +421,7 @@ public class FibonacciHeap {
      */
     public int potential()
     {
-        return -234; // should be replaced by student code
+        return this.trees+2*this.marked; // should be replaced by student code
     }
 
     /**
@@ -200,7 +434,7 @@ public class FibonacciHeap {
      */
     public static int totalLinks()
     {
-        return -345; // should be replaced by student code
+        return totalLinks; // should be replaced by student code
     }
 
     /**
@@ -212,7 +446,7 @@ public class FibonacciHeap {
      */
     public static int totalCuts()
     {
-        return -456; // should be replaced by student code
+        return totalCuts; // should be replaced by student code
     }
 
     /**
@@ -225,7 +459,7 @@ public class FibonacciHeap {
      */
     public static int[] kMin(FibonacciHeap H, int k)
     {
-        int[] arr = new int[100];
+        int[] arr = new int[k];
         return arr; // should be replaced by student code
     }
 
@@ -236,16 +470,113 @@ public class FibonacciHeap {
      * (for example HeapNode), do it in this file, not in another file.
      *
      */
+
+    public static class Display { //print function
+        public static final int MIN_SPACE_BETWEEN_NODES_IN_ROOT = 2;
+
+        public static void display(FibonacciHeap heap) {
+            List<StringBuilder> stringBuilders = new ArrayList<>();
+            FibonacciHeap.HeapNode minNode = heap.findMin();
+            buildRowDisplay(minNode, stringBuilders, 0);
+            printHeap(stringBuilders);
+        }
+
+        private static void printHeap(List<StringBuilder> stringBuilders) {
+            for (StringBuilder stringBuilder : stringBuilders) {
+                System.out.println(stringBuilder.toString());
+            }
+        }
+
+        private static void padAllToLength(List<StringBuilder> stringBuilders, int toLength) {
+            for (int depth = 0; depth < stringBuilders.size(); depth++) {
+                padDepth(stringBuilders, depth, toLength, true);
+            }
+        }
+
+        private static void padDepth(List<StringBuilder> stringBuilders, int depth, int toLength, boolean isSpaces) {
+            StringBuilder stringBuilder = getStringBuilder(stringBuilders, depth);
+            int diff = toLength - stringBuilder.length();
+            for (int time = diff - 1; time >= 0 ; time--) {
+                char chr = isSpaces ? ' ' : time == 0 ? '>' : '-';
+                stringBuilder.append(chr);
+            }
+        }
+
+        private static void removeSpacesAtSuffix(List<StringBuilder> stringBuilders, int depth) {
+            StringBuilder stringBuilder = getStringBuilder(stringBuilders, depth);
+            int length = stringBuilder.length();
+            if (stringBuilder.charAt(length -1) == ' ') {
+                int startIndex = 0;
+                for (int index = stringBuilder.length() - 1; index >= 0; index--) {
+                    if (stringBuilder.charAt(index) != ' ') {
+                        startIndex = index + 1;
+                        break;
+                    }
+                }
+
+                stringBuilder.replace(startIndex, length, "");
+            }
+        }
+
+        private static StringBuilder getStringBuilder(List<StringBuilder> stringBuilders, int depth) {
+            StringBuilder stringBuilder;
+            if (depth < stringBuilders.size()) {
+                stringBuilder = stringBuilders.get(depth);
+            } else {
+                stringBuilder = new StringBuilder();
+                stringBuilders.add(depth, stringBuilder);
+
+            }
+            return stringBuilder;
+        }
+
+        private static int getMaxStringBuilderLength(List<StringBuilder> stringBuilders) {
+            int maxLength = 0;
+            for (StringBuilder stringBuilder :
+                    stringBuilders) {
+                maxLength = Math.max(maxLength, stringBuilder.length());
+            }
+            return maxLength;
+        }
+
+        private static void buildRowDisplay(FibonacciHeap.HeapNode node, List<StringBuilder> stringBuilders, int depth) {
+            FibonacciHeap.HeapNode current = node;
+            StringBuilder stringBuilder = getStringBuilder(stringBuilders, depth);
+            do {
+                buildNodeDisplay(current, stringBuilders, depth);
+
+                removeSpacesAtSuffix(stringBuilders, depth);
+                int padToLength = Math.max(stringBuilder.length() + MIN_SPACE_BETWEEN_NODES_IN_ROOT, getMaxStringBuilderLength(stringBuilders));
+                padDepth(stringBuilders, depth, padToLength, current.next == node);
+
+                padAllToLength(stringBuilders, stringBuilder.length());
+                current = current.next;
+            } while (current != node);
+        }
+
+
+        private static void buildNodeDisplay(FibonacciHeap.HeapNode node, List<StringBuilder> stringBuilders, int depth) {
+            StringBuilder stringBuilder = getStringBuilder(stringBuilders, depth);
+            stringBuilder.append(node.key);
+            if (node.child != null) {
+                StringBuilder lineSep = getStringBuilder(stringBuilders, depth + 1);
+                padDepth(stringBuilders, depth + 1, stringBuilder.length() - 1, true);
+                padDepth(stringBuilders, depth + 2, stringBuilder.length() - 1, true);
+                lineSep.append('|');
+                buildRowDisplay(node.child, stringBuilders, depth + 2);
+            }
+        }
+    }
     public static class HeapNode{
 
-        public int key;
-        public int rank;
-        public boolean mark;
-        public HeapNode child;
-        public HeapNode next;
-        public HeapNode prev;
-        public HeapNode parent;
-        public HeapNode() {
+        private int key;
+        private int rank;
+        private boolean mark;
+        private HeapNode child;
+        private HeapNode next;
+        private HeapNode prev;
+        private HeapNode parent;
+        private HeapNode() {
             this.key = -1;
             this.rank = -1;
             this.mark = false;
